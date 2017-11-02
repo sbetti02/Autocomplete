@@ -18,21 +18,15 @@ class Trie:
         currWord = ""
         wordCount = self.vocabulary[word]
         for letter in word:
-            if len(currWord) == 1 and re.search("[A-Z]", currWord):
-                currNode = self.findNode(currWord.lower())
-                currWord = currWord.lower()
             fullWord = currWord + letter
             childNode = currNode.child(letter)
-            if childNode:
-                childNode.incrementCount(wordCount)
-                currNode = childNode
-                currWord = fullWord
-                continue
-            newNode = Node(letter, currWord, fullWord in self.vocabulary)
-            newNode.incrementCount(wordCount)
-            currNode.addChild(newNode)
-            currNode = newNode
+            if not childNode:
+                childNode = Node(letter, currWord, fullWord in self.vocabulary)
+                currNode.addChild(childNode)
             currWord = fullWord
+            currNode = childNode
+            if fullWord == word:
+                childNode.incrementCount(wordCount)
 
     def allWordsWithPrefix(self, string):
         currNode = self.findNode(string.lower())
@@ -96,6 +90,7 @@ def generateVocabulary(corpus):
         for word in sentence:
             if len(word) <= 2 and not re.search('[a-zA-Z0-9]', word[0]):
                 continue
+            word = word.lower()
             vocab[word] = vocab[word] + 1
     return vocab
 
