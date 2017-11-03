@@ -96,6 +96,7 @@ def generateVocabulary(corpus):
 
 
 def main():
+    print "Loading..."
     trainingSet = brown.sents()[:50000]
     vocabulary = generateVocabulary(trainingSet)
     T = Trie(vocabulary)

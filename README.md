@@ -4,6 +4,8 @@ Takes a prefix and returns the most common words that start with the given prefi
 
 Counters keep track of the number of times each word has been encountered so that only the top results are returned.
 
+Note that the `brown` corpus must be downloaded through nltk for the program to operate correctly
+
 ## TODO
 [ ] Work on serializing trie structure for quick startup
 [ ] Allow updating word counts based on user input
