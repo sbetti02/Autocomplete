@@ -1,7 +1,10 @@
+import nltk.tokenize
 from nltk.corpus import brown
 from collections import defaultdict
 import re
 from operator import itemgetter
+import argparse
+import os
 
 class Trie:
     def __init__(self, vocab):
@@ -83,29 +86,57 @@ class Node:
     def incrementCount(self, increment):
         self.wordCounts = self.wordCounts + increment
 
+# Takes any python iterable
 def generateVocabulary(corpus):
     vocab = defaultdict(int)
-    for sentence in corpus:
-        for word in sentence:
-            if len(word) <= 2 and not re.search('[a-zA-Z0-9]', word[0]):
-                continue
+    for word in corpus:
+        if len(word) > 2 or re.search('[a-zA-Z0-9]', word[0]):
             word = word.lower()
-            vocab[word] = vocab[word] + 1
+            vocab[word] += 1
     return vocab
 
-
-def main():
-    print "Loading..."
-    trainingSet = brown.sents()[:50000]
-    vocabulary = generateVocabulary(trainingSet)
-    T = Trie(vocabulary)
+def runInterpreter(trie):
     inp = ""
     while inp != 'q':
-        print "Enter a valid prefix to find the most common associated words"
+        print "Enter a valid prefix to find the most common words given that prefix"
         inp = raw_input()
-        retList = T.allWordsWithPrefix(inp)
+        retList = trie.allWordsWithPrefix(inp)
         retList.sort(key=lambda x: -x[1]) # Sort from greatest to least
         print retList[:5]
+       
+
+def createTrie(trainingData=""):
+    print "Loading..."
+    if trainingData:
+        if type(trainingData) != str:
+            trainingData = " ".join(trainingData)
+        trainingSet = nltk.tokenize.word_tokenize(trainingData)
+    else:
+        trainingSet = brown.sents()[:50000]
+        trainingSet = [word for sentence in trainingSet for word in sentence]
+    vocabulary = generateVocabulary(trainingSet)
+    T = Trie(vocabulary)
+    runInterpreter(T)
+
+def main():
+    parser = argparse.ArgumentParser(description="Give the most common word given a prefix")
+    parser.add_argument("data", nargs="?")
+    args = parser.parse_args()
+
+    print "Loading..."
+    if not args.data:
+        trainingSet = brown.sents()[:50000]
+        trainingSet = [word for sentence in trainingSet for word in sentence]
+    else:
+        if os.path.exists(args.data):
+            with open(args.data, "r") as f:
+                trainingSet = nltk.tokenize.word_tokenize(f.read())
+        else:
+            trainingSet = nltk.tokenize.word_tokenize(args.data)
+
+    vocabulary = generateVocabulary(trainingSet)
+    T = Trie(vocabulary)
+    runInterpreter(T)
 
 if __name__ == "__main__":
     main()
