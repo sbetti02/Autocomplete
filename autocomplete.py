@@ -5,7 +5,7 @@ from operator import itemgetter
 
 class Trie:
     def __init__(self, vocab):
-        self.root = Node("", "", 0)
+        self.root = Node("", "")
         self.vocabulary = vocab
         self.generateTrie()
 
@@ -21,7 +21,7 @@ class Trie:
             fullWord = currWord + letter
             childNode = currNode.child(letter)
             if not childNode:
-                childNode = Node(letter, currWord, fullWord in self.vocabulary)
+                childNode = Node(letter, currWord)
                 currNode.addChild(childNode)
             currWord = fullWord
             currNode = childNode
@@ -34,7 +34,7 @@ class Trie:
 
     def wordsFromNode(self, node):
         prefixedWords = []
-        if node.isWord:
+        if node.wordCounts:
             prefixedWords.append([node.word, node.wordCounts])
         for child in node.children:
             prefixedWords.extend(self.wordsFromNode(child))
@@ -47,7 +47,7 @@ class Trie:
             fullWord = currWord + letter
             childNode = currNode.child(letter)
             if not childNode:
-                newNode = Node(letter, currWord, fullWord in self.vocabulary)
+                newNode = Node(letter, currWord)
                 currNode.addChild(newNode)
                 currNode = newNode
             else:
@@ -56,7 +56,7 @@ class Trie:
         return currNode
 
     def printTrieHelper(self, currNode):
-        if currNode.isWord:
+        if currNode.wordCounts:
             print currNode.word, currNode.wordCounts
         for child in currNode.children:
             self.printTrieHelper(child)
@@ -65,12 +65,11 @@ class Trie:
         self.printTrieHelper(self.root)
 
 class Node:
-    def __init__(self, letter, parentWord, isWord):
+    def __init__(self, letter, parentWord):
         self.children = []
         self.letter = letter
         self.word = parentWord + letter
         self.wordCounts = 0
-        self.isWord = isWord
     
     def addChild(self, node):
         self.children.append(node)
