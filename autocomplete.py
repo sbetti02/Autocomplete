@@ -7,87 +7,129 @@ import argparse
 import os
 
 class Trie:
+    """
+        The Trie class builds and maintains a trie, where each node represents 
+        a different letter, and overall represents all of the words seen in 
+        the given vocabulary.
+    """
+
     def __init__(self, vocab):
+        """ 
+            Initializing function for the trie, creates structure 
+            from given vocabulary dict 
+        """
         self.root = Node("", "")
         self.vocabulary = vocab
-        self.generateTrie()
+        self.generate_trie()
 
-    def generateTrie(self):
+    def generate_trie(self):
+        """  Adds one word at a time from the vocabulary to the trie  """
         for word in self.vocabulary:
-            self.addWord(word)
+            self.add_word(word)
 
-    def addWord(self, word):
-        currNode = self.root
-        currWord = ""
-        wordCount = self.vocabulary[word]
+    def add_word(self, word):
+        """ 
+            Adds an individual word to the try letter by letter.  
+            Calls increment_count on the node of the last letter in the word to 
+            keep track of the number of appearances of a particular word. 
+        """
+        curr_node = self.root
+        curr_word = ""
+        word_count = self.vocabulary[word]
         for letter in word:
-            fullWord = currWord + letter
-            childNode = currNode.child(letter)
-            if not childNode:
-                childNode = Node(letter, currWord)
-                currNode.addChild(childNode)
-            currWord = fullWord
-            currNode = childNode
-            if fullWord == word:
-                childNode.incrementCount(wordCount)
+            full_word = curr_word + letter
+            child_node = curr_node.child(letter)
+            if not child_node:
+                child_node = Node(letter, curr_word)
+                curr_node.add_child(child_node)
+            curr_word = full_word
+            curr_node = child_node
+            if full_word == word:
+                child_node.increment_count(word_count)
 
-    def allWordsWithPrefix(self, string):
-        currNode = self.findNode(string.lower())
-        return self.wordsFromNode(currNode)
+    def all_words_with_prefix(self, string):
+        """  returns all words that start with a prefix given by 'string'  """
+        return self.words_from_node(self.find_node(string))
+         
 
-    def wordsFromNode(self, node):
-        prefixedWords = []
-        if node.wordCounts:
-            prefixedWords.append([node.word, node.wordCounts])
+    def words_from_node(self, node):
+        """ 
+            Recursively traverse through the tree from a given starting node,
+            searching for all valid words and returning them in a list 
+        """
+        if not node:
+            return []
+        prefixed_words = []
+        if node.word_counts:
+            prefixed_words.append([node.word, node.word_counts])
         for child in node.children:
-            prefixedWords.extend(self.wordsFromNode(child))
-        return prefixedWords
+            prefixed_words.extend(self.words_from_node(child))
+        return prefixed_words
 
-    def findNode(self, string):
-        currNode = self.root
-        currWord = ""
+    def find_node(self, string):
+        """
+            Given a string, traverse through the trie to locate the last letter
+            belonging to the string, which represents the string itself
+        """
+        curr_node = self.root
+        curr_word = ""
         for letter in string:
-            fullWord = currWord + letter
-            childNode = currNode.child(letter)
-            if not childNode:
-                newNode = Node(letter, currWord)
-                currNode.addChild(newNode)
-                currNode = newNode
+            full_word = curr_word + letter
+            child_node = curr_node.child(letter)
+            if child_node:
+                curr_node = child_node
             else:
-                currNode = childNode
-            currWord = fullWord
-        return currNode
+                return None
+            curr_word = full_word
+        return curr_node
 
-    def printTrieHelper(self, currNode):
-        if currNode.wordCounts:
-            print currNode.word, currNode.wordCounts
-        for child in currNode.children:
-            self.printTrieHelper(child)
+    def _print_trie_helper(self, curr_node):
+        if curr_node.word_counts:
+            print curr_node.word, curr_node.word_counts
+        for child in curr_node.children:
+            self.print_trie_helper(child)
 
-    def printTrie(self):
-        self.printTrieHelper(self.root)
+    def _print_trie(self):
+        """  Print out each word on the trie. Used for testing  """
+        self._print_trie_helper(self.root)
 
 class Node:
-    def __init__(self, letter, parentWord):
+    """  Class for representing nodes on the trie  """
+    
+    def __init__(self, letter, parent_word):
+        """  
+            Initialization for the Node class requires a letter and a string
+            containing the prior letters in the word the node is representing
+        """
         self.children = []
         self.letter = letter
-        self.word = parentWord + letter
-        self.wordCounts = 0
+        self.word = parent_word + letter
+        self.word_counts = 0
     
-    def addChild(self, node):
+    def add_child(self, node):
+        """  Add a node as a child to a node instance  """
         self.children.append(node)
 
     def child(self, letter):
+        """  
+            Locate the child of a node represented by a particular letter
+            or return None of no child exists
+        """
         for child in self.children:
             if child.letter == letter:
                 return child
         return None
 
-    def incrementCount(self, increment):
-        self.wordCounts = self.wordCounts + increment
+    def increment_count(self, increment):
+        """  Increment the number of appeaances of a node by 'increment'  """
+        self.word_counts = self.word_counts + increment
 
-# Takes any python iterable
-def generateVocabulary(corpus):
+def generate_vocabulary(corpus):
+    """  
+        Given any python iterable (that contains a representation of words or
+        sentences), return a dictionary mapping words to the number of time that
+        word appears
+    """
     vocab = defaultdict(int)
     for word in corpus:
         if len(word) > 2 or re.search('[a-zA-Z0-9]', word[0]):
@@ -95,48 +137,61 @@ def generateVocabulary(corpus):
             vocab[word] += 1
     return vocab
 
-def runInterpreter(trie):
+def run_interpreter(trie):
+    """
+        Run an interpreter for a trie that repeatedly asks for prefixes to Enter
+        and returns the top 5 most common words given that particular prefix
+    """
     inp = ""
     while inp != 'q':
         print "Enter a valid prefix to find the most common words given that prefix"
-        inp = raw_input()
-        retList = trie.allWordsWithPrefix(inp)
-        retList.sort(key=lambda x: -x[1]) # Sort from greatest to least
-        print retList[:5]
+        inp = raw_input('> ')
+        ret_list = trie.all_words_with_prefix(inp.lower())
+        ret_list.sort(key=lambda x: -x[1]) # Sort from greatest to least
+        print ret_list[:5]
        
-
-def createTrie(trainingData=""):
+def createTrie(training_data=""):
+    """
+        An outer function used for instantiating a Trie from another module.
+        Either takes input training data or builds from the first 50000 
+        sentences of the Brown corpus
+    """
     print "Loading..."
-    if trainingData:
-        if type(trainingData) != str:
-            trainingData = " ".join(trainingData)
-        trainingSet = nltk.tokenize.word_tokenize(trainingData)
+    if training_data:
+        if type(training_data) != str:
+            training_data = " ".join(training_data)
+        training_set = nltk.tokenize.word_tokenize(training_data)
     else:
-        trainingSet = brown.sents()[:50000]
-        trainingSet = [word for sentence in trainingSet for word in sentence]
-    vocabulary = generateVocabulary(trainingSet)
+        training_set = brown.sents()[:50000]
+        training_set = [word for sentence in training_set for word in sentence]
+    vocabulary = generate_vocabulary(training_set)
     T = Trie(vocabulary)
-    runInterpreter(T)
+    return T
 
 def main():
+    """
+        If instantiating from command line, either build the Trie from the 
+        first 50,000 sentences of the Brown corpus or through a file specified
+        on the command line.  Once built, run an interpreter with the Trie.
+    """
     parser = argparse.ArgumentParser(description="Give the most common word given a prefix")
     parser.add_argument("data", nargs="?")
     args = parser.parse_args()
 
     print "Loading..."
     if not args.data:
-        trainingSet = brown.sents()[:50000]
-        trainingSet = [word for sentence in trainingSet for word in sentence]
+        training_set = brown.sents()[:50000]
+        training_set = [word for sentence in training_set for word in sentence]
     else:
         if os.path.exists(args.data):
             with open(args.data, "r") as f:
-                trainingSet = nltk.tokenize.word_tokenize(f.read())
+                training_set = nltk.tokenize.word_tokenize(f.read())
         else:
-            trainingSet = nltk.tokenize.word_tokenize(args.data)
+            training_set = nltk.tokenize.word_tokenize(args.data)
 
-    vocabulary = generateVocabulary(trainingSet)
+    vocabulary = generate_vocabulary(training_set)
     T = Trie(vocabulary)
-    runInterpreter(T)
+    run_interpreter(T)
 
 if __name__ == "__main__":
     main()
