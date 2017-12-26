@@ -95,7 +95,7 @@ class Trie:
 
 class Node:
     """  Class for representing nodes on the trie  """
-    
+
     def __init__(self, letter, parent_word):
         """  
             Initialization for the Node class requires a letter and a string
@@ -148,7 +148,11 @@ def run_interpreter(trie):
         inp = raw_input('> ')
         ret_list = trie.all_words_with_prefix(inp.lower())
         ret_list.sort(key=lambda x: -x[1]) # Sort from greatest to least
-        print ret_list[:5]
+        num_to_print = min(5, len(ret_list))
+        if num_to_print == 0:
+            print "No words were found..."
+        for i in xrange(num_to_print):
+            print str(i+1)+'. ' + str(ret_list[i][0]) + ' - ' + str(ret_list[i][1])
        
 def createTrie(training_data=""):
     """
