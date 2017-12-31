@@ -5,6 +5,12 @@ import re
 from operator import itemgetter
 import argparse
 import os
+import persist
+#from persist import SQL_Vars
+from collections import deque
+import time # Remove
+
+
 
 class Trie:
     """
@@ -93,10 +99,50 @@ class Trie:
         """  Print out each word on the trie. Used for testing  """
         self._print_trie_helper(self.root)
 
+    def create_from_db(self):
+        """
+            Create the Trie structure from a representation of a Trie stored in a
+            database.  Each node in the database is stored as a tuple of
+            (id, p_id, let, count, word)
+            Void function
+        """
+
+        if self.root.children:
+            print "Error: create_from_db given non-empty Trie"
+            return None
+        db_access_time = 0
+        total_time_start = time.time()
+        from persist import SQL_Vars
+        conn = persist.db_connect()
+        cursor = conn.cursor()
+        start = time.time()
+        sql_node = persist.get_root(cursor)
+        db_access_time += time.time()-start
+        explore = deque([(sql_node, self.root)])
+        while explore:
+            sql_node, trie_node = explore.pop()
+            start = time.time()
+            sql_children = persist.find_children(cursor, sql_node[SQL_Vars.id])
+            finish = time.time()
+            db_access_time += finish-start
+            children_trie_nodes = []
+            for child_sql_node in sql_children:
+                child_trie_node = Node(child_sql_node[SQL_Vars.let], 
+                                       sql_node[SQL_Vars.word], 
+                                       child_sql_node[SQL_Vars.count])
+                children_trie_nodes.append(child_trie_node)
+                explore.appendleft((child_sql_node, child_trie_node))
+            trie_node.add_children(children_trie_nodes)
+        conn.close()
+        print "Total time used for func:", time.time()-total_time_start
+        print "Total time accessing db to find children:", db_access_time
+
+
+
 class Node:
     """  Class for representing nodes on the trie  """
 
-    def __init__(self, letter, parent_word):
+    def __init__(self, letter, parent_word, counts=0):
         """  
             Initialization for the Node class requires a letter and a string
             containing the prior letters in the word the node is representing
@@ -104,8 +150,12 @@ class Node:
         self.children = []
         self.letter = letter
         self.word = parent_word + letter
-        self.word_counts = 0
+        self.word_counts = counts
     
+    def add_children(self, nodes):
+        """Add *nodes* (a list of nodes) as children to a node instance"""
+        self.children.extend(nodes)
+
     def add_child(self, node):
         """  Add a node as a child to a node instance  """
         self.children.append(node)
@@ -146,7 +196,9 @@ def run_interpreter(trie):
     while inp != 'q':
         print "Enter a valid prefix to find the most common words given that prefix"
         inp = raw_input('> ')
+        s = time.time()
         ret_list = trie.all_words_with_prefix(inp.lower())
+        print "Search time:", time.time() - s
         ret_list.sort(key=lambda x: -x[1]) # Sort from greatest to least
         num_to_print = min(5, len(ret_list))
         if num_to_print == 0:
@@ -180,11 +232,19 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Give the most common word given a prefix")
     parser.add_argument("data", nargs="?")
+    parser.add_argument("-db", action="store_true")
     args = parser.parse_args()
 
     print "Loading..."
+    if args.db:
+        T = Trie({})
+        T.create_from_db()
+        run_interpreter(T)
+        return
+
+    s = time.time()
     if not args.data:
-        training_set = brown.sents()[:50000]
+        training_set = brown.sents()[:10000]
         training_set = [word for sentence in training_set for word in sentence]
     else:
         if os.path.exists(args.data):
@@ -192,10 +252,13 @@ def main():
                 training_set = nltk.tokenize.word_tokenize(f.read())
         else:
             training_set = nltk.tokenize.word_tokenize(args.data)
-
     vocabulary = generate_vocabulary(training_set)
     T = Trie(vocabulary)
-    run_interpreter(T)
+    print "Time spent building trie:", time.time()-s
+    # run_interpreter(T)
+    persist.drop_table()
+    persist.write_trie(T)
+    persist.main()
 
 if __name__ == "__main__":
     main()
