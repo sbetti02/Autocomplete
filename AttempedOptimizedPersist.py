@@ -7,9 +7,9 @@ from enum import Enum # Not installed on old python installations
 import autocomplete
 from collections import deque
 import time
+import re
 
 
-# PRINTABLE = set(string.printable)
 PRINTABLE = set(string.ascii_lowercase+string.digits)
 
 class SQL_Vars(Enum):
@@ -24,7 +24,6 @@ def db_connect():
         Functionality used for all functions that need to connect to the database.
         Single source of truth for if database moves or changes for any reason.
     """
-    # TODO: Include this function in all functions that need it
     return sqlite3.connect('trie.db')
 
 def get_root(c):
@@ -106,25 +105,11 @@ def insert_node(c, p_id, char, count, word):
     :param count: number of times the character appears
     :returns: the id of the row in the db
     """
-    # try:
-        # if word:
-        #     word_len = len(word)
-        #     table_name = 'Trie_' + str(word[0]) + '_' + str(word_len)
-        #     if word_len > 1:
-        #         parent_t_name = 'Trie_' + str(word[0]) + '_' + str(word_len-1)
-        #     else:
-        #         parent_t_name = 'Trie_0'
-        # else:
-        #     table_name = 'Trie_0'
-        #     parent_t_name = None
+
     table_name, parent_t_name = table_name_and_parent_table(word, count)
     create_table(c, table_name, parent_t_name) 
     c.execute("INSERT INTO " + table_name + """ (p_id, let, count, word)
         VALUES (?, ?, ?, ?)""", (p_id, char, count, word))
-    # except:
-    #     return None
-    # else:
-    #     return c.lastrowid
 
 def find_child(cursor, p_id, p_word, child_let):
     pass
@@ -145,7 +130,6 @@ def _find_node_db(prefix, cursor):
         table_name = table_base_name + str(let_ind+1)
         cursor.execute("""SELECT * FROM """ + table_name + """ WHERE p_id = ? AND let = ?""",
                           (parent[SQL_Vars.id], prefix[let_ind]))
-        # print cursor.fetchall()
         parent = cursor.fetchone()
         let_ind += 1
     return parent
@@ -174,7 +158,7 @@ def _add_word(c, word, count=1):
     """
     if not word:
         return
-    if word[0] in """/*-'`,:()&?;!+[]{}^%$#@~""": # TODO: Remove this.
+    if not re.match("[A-Za-Z0-9]", word[0]):
         return
 
     parent = get_root(c)
@@ -220,14 +204,6 @@ def add_words(words):
     conn = db_connect()
     c = conn.cursor()
     c.execute("""DROP TABLE IF EXISTS Trie""")
-    # c.execute("""
-    #             CREATE TABLE IF NOT EXISTS Trie (
-    #                         id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #                         p_id INT, 
-    #                         let CHAR(1),
-    #                         count INT,
-    #                         word TEXT);
-    #             """)
     num_words = len(vocab)
     i = 0
     for word in vocab:
@@ -271,8 +247,6 @@ def words_from_node_db(node, cursor):
         fetall = cursor.fetchall()
         child_tables = filter(lambda t: (t,) in fetall, child_tables)
         for child_table in child_tables:
-            # if (child_table,) not in fetall:
-
             cursor.execute("""SELECT * FROM """ + child_table + """ WHERE p_id = ?""", 
                         (node[SQL_Vars.id],))
             children = cursor.fetchall()
