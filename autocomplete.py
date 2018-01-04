@@ -5,6 +5,11 @@ import re
 from operator import itemgetter
 import argparse
 import os
+import persist
+from collections import deque
+import time
+
+
 
 class Trie:
     """
@@ -93,10 +98,50 @@ class Trie:
         """  Print out each word on the trie. Used for testing  """
         self._print_trie_helper(self.root)
 
+    def create_from_db(self):
+        """
+            Create the Trie structure from a representation of a Trie stored in a
+            database.  Each node in the database is stored as a tuple of
+            (id, p_id, let, count, word)
+            Void function
+        """
+
+        if self.root.children:
+            print "Error: create_from_db given non-empty Trie"
+            return None
+        db_access_time = 0
+        total_time_start = time.time()
+        from persist import SQL_Vars
+        conn = persist.db_connect()
+        cursor = conn.cursor()
+        start = time.time()
+        sql_node = persist.get_root(cursor)
+        db_access_time += time.time()-start
+        explore = deque([(sql_node, self.root)])
+        while explore:
+            sql_node, trie_node = explore.pop()
+            start = time.time()
+            sql_children = persist.find_children(cursor, sql_node[SQL_Vars.id])
+            finish = time.time()
+            db_access_time += finish-start
+            children_trie_nodes = []
+            for child_sql_node in sql_children:
+                child_trie_node = Node(child_sql_node[SQL_Vars.let], 
+                                       sql_node[SQL_Vars.word], 
+                                       child_sql_node[SQL_Vars.count])
+                children_trie_nodes.append(child_trie_node)
+                explore.appendleft((child_sql_node, child_trie_node))
+            trie_node.add_children(children_trie_nodes)
+        conn.close()
+        print "Total time used for func:", time.time()-total_time_start
+        print "Total time accessing db to find children:", db_access_time
+
+
+
 class Node:
     """  Class for representing nodes on the trie  """
-    
-    def __init__(self, letter, parent_word):
+
+    def __init__(self, letter, parent_word, counts=0):
         """  
             Initialization for the Node class requires a letter and a string
             containing the prior letters in the word the node is representing
@@ -104,8 +149,12 @@ class Node:
         self.children = []
         self.letter = letter
         self.word = parent_word + letter
-        self.word_counts = 0
+        self.word_counts = counts
     
+    def add_children(self, nodes):
+        """Add *nodes* (a list of nodes) as children to a node instance"""
+        self.children.extend(nodes)
+
     def add_child(self, node):
         """  Add a node as a child to a node instance  """
         self.children.append(node)
@@ -137,20 +186,36 @@ def generate_vocabulary(corpus):
             vocab[word] += 1
     return vocab
 
+def store_trie(trie):
+    """
+        Store the representation *trie*, an instance of class Trie, in the db
+        Returns True if successful and False otherwise.
+    """
+    return persist.write_trie(trie)
+
 def run_interpreter(trie):
     """
         Run an interpreter for a trie that repeatedly asks for prefixes to Enter
         and returns the top 5 most common words given that particular prefix
     """
     inp = ""
-    while inp != 'q':
+    while inp != 'quit()':
         print "Enter a valid prefix to find the most common words given that prefix"
+        print "Enter quit() to exit"
         inp = raw_input('> ')
+        if inp == 'quit()':
+            return
+        s = time.time()
         ret_list = trie.all_words_with_prefix(inp.lower())
+        print "Search time:", time.time() - s
         ret_list.sort(key=lambda x: -x[1]) # Sort from greatest to least
-        print ret_list[:5]
+        num_to_print = min(5, len(ret_list))
+        if num_to_print == 0:
+            print "No words were found..."
+        for i in xrange(num_to_print):
+            print str(i+1)+'. ' + str(ret_list[i][0]) + ' - ' + str(ret_list[i][1])
        
-def createTrie(training_data=""):
+def create_trie(training_data=""):
     """
         An outer function used for instantiating a Trie from another module.
         Either takes input training data or builds from the first 50000 
@@ -176,19 +241,25 @@ def main():
     """
     parser = argparse.ArgumentParser(description="Give the most common word given a prefix")
     parser.add_argument("data", nargs="?")
+    parser.add_argument("-db", action="store_true")
     args = parser.parse_args()
 
     print "Loading..."
+    if args.db:
+        T = Trie({})
+        T.create_from_db()
+        run_interpreter(T)
+        return
+
     if not args.data:
         training_set = brown.sents()[:50000]
         training_set = [word for sentence in training_set for word in sentence]
-    else:
+    else: # Want to read from a file or string
         if os.path.exists(args.data):
             with open(args.data, "r") as f:
                 training_set = nltk.tokenize.word_tokenize(f.read())
         else:
             training_set = nltk.tokenize.word_tokenize(args.data)
-
     vocabulary = generate_vocabulary(training_set)
     T = Trie(vocabulary)
     run_interpreter(T)
