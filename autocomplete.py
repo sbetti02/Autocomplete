@@ -6,9 +6,8 @@ from operator import itemgetter
 import argparse
 import os
 import persist
-#from persist import SQL_Vars
 from collections import deque
-import time # Remove
+import time
 
 
 
@@ -187,15 +186,25 @@ def generate_vocabulary(corpus):
             vocab[word] += 1
     return vocab
 
+def store_trie(trie):
+    """
+        Store the representation *trie*, an instance of class Trie, in the db
+        Returns True if successful and False otherwise.
+    """
+    return persist.write_trie(trie)
+
 def run_interpreter(trie):
     """
         Run an interpreter for a trie that repeatedly asks for prefixes to Enter
         and returns the top 5 most common words given that particular prefix
     """
     inp = ""
-    while inp != 'q':
+    while inp != 'quit()':
         print "Enter a valid prefix to find the most common words given that prefix"
+        print "Enter quit() to exit"
         inp = raw_input('> ')
+        if inp == 'quit()':
+            return
         s = time.time()
         ret_list = trie.all_words_with_prefix(inp.lower())
         print "Search time:", time.time() - s
@@ -206,7 +215,7 @@ def run_interpreter(trie):
         for i in xrange(num_to_print):
             print str(i+1)+'. ' + str(ret_list[i][0]) + ' - ' + str(ret_list[i][1])
        
-def createTrie(training_data=""):
+def create_trie(training_data=""):
     """
         An outer function used for instantiating a Trie from another module.
         Either takes input training data or builds from the first 50000 
@@ -242,11 +251,10 @@ def main():
         run_interpreter(T)
         return
 
-    s = time.time()
     if not args.data:
-        training_set = brown.sents()[:10000]
+        training_set = brown.sents()[:50000]
         training_set = [word for sentence in training_set for word in sentence]
-    else:
+    else: # Want to read from a file or string
         if os.path.exists(args.data):
             with open(args.data, "r") as f:
                 training_set = nltk.tokenize.word_tokenize(f.read())
@@ -254,11 +262,7 @@ def main():
             training_set = nltk.tokenize.word_tokenize(args.data)
     vocabulary = generate_vocabulary(training_set)
     T = Trie(vocabulary)
-    print "Time spent building trie:", time.time()-s
-    # run_interpreter(T)
-    persist.drop_table()
-    persist.write_trie(T)
-    persist.main()
+    run_interpreter(T)
 
 if __name__ == "__main__":
     main()
