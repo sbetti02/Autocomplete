@@ -7,6 +7,6 @@ Counters keep track of the number of times each word has been encountered so tha
 Note that the `brown` corpus must be downloaded through nltk for the program to operate correctly
 
 ## TODO
-- [ ] Work on serializing trie structure for quick startup
-- [ ] Allow updating word counts based on user 
+- [x] Work on serializing trie structure for quick startup
+- [x] Allow updating word counts based on user 
 - [ ] Look into slick integration with [Readline library](https://docs.python.org/2/library/readline.html)
